@@ -115,16 +115,18 @@ jobs:
         working-directory: ${{ github.workspace }}/Release-build
         run: |
           $env:PATH = "${{ github.workspace }}\Release-build\bin;${{ github.workspace }}\Release-build\lib;C:\z3\bin;C:\Program Files\OpenCppCoverage;$env:PATH"
-          OpenCppCoverage.exe --sources "${{ github.workspace }}\svf" --sources "${{ github.workspace }}\svf-llvm" --export_type cobertura:coverage-msvc.xml -- ctest --output-on-failure
+          OpenCppCoverage.exe --cover_children --sources "${{ github.workspace }}\svf" --sources "${{ github.workspace }}\svf-llvm" --export_type cobertura:coverage-msvc.xml -- ctest --output-on-failure
           
           # Normalize paths in coverage-msvc.xml to relative repository paths for Codecov
           $ws = $env:GITHUB_WORKSPACE
           $wsForward = $ws -replace '\\', '/'
-          (Get-Content coverage-msvc.xml) | ForEach-Object {
-              $_ -replace [regex]::Escape($ws + '\'), '' `
-                 -replace [regex]::Escape($wsForward + '/'), '' `
-                 -replace [regex]::Escape($ws + '/'), ''
-          } | Set-Content coverage-msvc.xml
+          if (Test-Path coverage-msvc.xml) {
+              (Get-Content coverage-msvc.xml) | ForEach-Object {
+                  $_ -replace [regex]::Escape($ws + '\'), '' `
+                     -replace [regex]::Escape($wsForward + '/'), '' `
+                     -replace [regex]::Escape($ws + '/'), ''
+              } | Set-Content coverage-msvc.xml
+          }
 
       - name: Run CTests (MinGW)
         if: matrix.compiler == 'mingw'
@@ -136,32 +138,27 @@ jobs:
 
       - name: Create Coverage Report (MinGW)
         if: matrix.compiler == 'mingw'
-        shell: powershell
+        shell: msys2 {0}
         working-directory: ${{ github.workspace }}/Release-build
         run: |
-          & "C:\tools\msys64\usr\bin\bash.exe" -lc "cd '${{ github.workspace }}/Release-build' && lcov --capture --directory ./ --output-file coverage-mingw.info --ignore-errors gcov,source || true"
+          lcov --capture --directory ./ --output-file coverage-mingw.info --ignore-errors gcov,source || true
+          lcov --remove coverage-mingw.info '/usr/*' --output-file coverage-mingw.info --ignore-errors unused || true
+          lcov --remove coverage-mingw.info '${{ github.workspace }}/z3.obj/*' --output-file coverage-mingw.info --ignore-errors unused || true
+          lcov --remove coverage-mingw.info '${{ github.workspace }}/llvm-*.obj/*' --output-file coverage-mingw.info --ignore-errors unused || true
+          lcov --remove coverage-mingw.info '${{ github.workspace }}/svf/include/FastCluster/*' --output-file coverage-mingw.info --ignore-errors unused || true
+          lcov --remove coverage-mingw.info '${{ github.workspace }}/svf/lib/FastCluster/*' --output-file coverage-mingw.info --ignore-errors unused || true
           
           # Normalize paths in coverage-mingw.info to relative repository paths for Codecov
-          $ws = $env:GITHUB_WORKSPACE
-          $wsForward = $ws -replace '\\', '/'
-          $drive = $ws.Substring(0, 1).ToLower()
-          $rest = $ws.Substring(3) -replace '\\', '/'
-          $msysPrefix = "/$drive/$rest"
-          
-          if (Test-Path coverage-mingw.info) {
-              (Get-Content coverage-mingw.info) | ForEach-Object {
-                  $_ -replace ('SF:' + [regex]::Escape($ws + '\')), 'SF:' `
-                     -replace ('SF:' + [regex]::Escape($wsForward + '/')), 'SF:' `
-                     -replace ('SF:' + [regex]::Escape($msysPrefix + '/')), 'SF:'
-              } | Set-Content coverage-mingw.info
-          }
+          if [ -f coverage-mingw.info ]; then
+            sed -i 's|SF:[A-Za-z]:/[^/]*/[^/]*/[^/]*/|SF:|g' coverage-mingw.info || true
+            sed -i 's|SF:/[a-z]/a/SVF/SVF/|SF:|g' coverage-mingw.info || true
+          fi
 
       - name: Upload Windows Coverage to Codecov
         uses: codecov/codecov-action@v5
         with:
           files: ${{ matrix.compiler == 'mingw' && 'Release-build/coverage-mingw.info' || 'Release-build/coverage-msvc.xml' }}
           flags: windows-${{ matrix.compiler }}
-          root_dir: ${{ github.workspace }}
           verbose: true
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
