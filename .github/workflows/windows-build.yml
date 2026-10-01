@@ -134,19 +134,21 @@ jobs:
           if ($profFiles.Count -gt 0) {
               $profListFile = "${{ github.workspace }}\Release-build\profraw_list.txt"
               $profFiles | ForEach-Object { $_.FullName } | Set-Content -Path $profListFile -Encoding ascii
-              llvm-profdata merge -sparse -input-files=$profListFile -o "${{ github.workspace }}\Release-build\coverage.profdata"
+              llvm-profdata merge -sparse "-input-files=$profListFile" -o "${{ github.workspace }}\Release-build\coverage.profdata"
               
-              # 2. Get all SVF executable binaries
+              # 2. Get all SVF executable binaries and DLLs
               $binFiles = Get-ChildItem -Path "${{ github.workspace }}\Release-build\bin\*.exe"
-              $mainBin = $binFiles[0].FullName
-              $extraBins = $binFiles | Select-Object -Skip 1 | ForEach-Object { "-object=$($_.FullName)" }
+              $dllFiles = Get-ChildItem -Path "${{ github.workspace }}\Release-build\bin\*.dll", "${{ github.workspace }}\Release-build\lib\*.dll" -ErrorAction SilentlyContinue
+              $allBins = @($binFiles) + @($dllFiles) | Where-Object { $_ -ne $null }
+              $mainBin = $allBins[0].FullName
+              $extraBins = $allBins | Select-Object -Skip 1 | ForEach-Object { "-object=$($_.FullName)" }
               
               # 3. Export to LCOV format
               & llvm-cov export $mainBin $extraBins `
-                -instr-profile="${{ github.workspace }}\Release-build\coverage.profdata" `
+                "-instr-profile=${{ github.workspace }}\Release-build\coverage.profdata" `
                 -format=lcov `
-                -sources="${{ github.workspace }}\svf" `
-                -sources="${{ github.workspace }}\svf-llvm" | Set-Content -Path "${{ github.workspace }}\Release-build\coverage-msvc.info" -Encoding ascii
+                "-sources=${{ github.workspace }}\svf" `
+                "-sources=${{ github.workspace }}\svf-llvm" | Set-Content -Path "${{ github.workspace }}\Release-build\coverage-msvc.info" -Encoding ascii
               
               # 4. Normalize paths in coverage-msvc.info to relative repository paths for Codecov
               $ws = $env:GITHUB_WORKSPACE
