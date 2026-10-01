@@ -115,7 +115,7 @@ jobs:
         working-directory: ${{ github.workspace }}/Release-build
         run: |
           $env:PATH = "${{ github.workspace }}\Release-build\bin;${{ github.workspace }}\Release-build\lib;C:\z3\bin;C:\Program Files\OpenCppCoverage;$env:PATH"
-          OpenCppCoverage.exe --cover_children --sources "${{ github.workspace }}\svf" --sources "${{ github.workspace }}\svf-llvm" --export_type cobertura:coverage-msvc.xml -- ctest --output-on-failure
+          OpenCppCoverage.exe --cover_children --modules "${{ github.workspace }}\Release-build\bin" --sources "${{ github.workspace }}\svf" --sources "${{ github.workspace }}\svf-llvm" --export_type cobertura:coverage-msvc.xml -- ctest --output-on-failure
           
           # Normalize paths in coverage-msvc.xml to relative repository paths for Codecov
           $ws = $env:GITHUB_WORKSPACE
