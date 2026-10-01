@@ -132,7 +132,9 @@ jobs:
           # 1. Merge raw profiles into indexed profile data
           $profFiles = Get-ChildItem "${{ github.workspace }}\Release-build\profdata\*.profraw"
           if ($profFiles.Count -gt 0) {
-              llvm-profdata merge -sparse ($profFiles | ForEach-Object { $_.FullName }) -o "${{ github.workspace }}\Release-build\coverage.profdata"
+              $profListFile = "${{ github.workspace }}\Release-build\profraw_list.txt"
+              $profFiles | ForEach-Object { $_.FullName } | Set-Content -Path $profListFile -Encoding ascii
+              llvm-profdata merge -sparse -input-files=$profListFile -o "${{ github.workspace }}\Release-build\coverage.profdata"
               
               # 2. Get all SVF executable binaries
               $binFiles = Get-ChildItem -Path "${{ github.workspace }}\Release-build\bin\*.exe"
@@ -140,11 +142,11 @@ jobs:
               $extraBins = $binFiles | Select-Object -Skip 1 | ForEach-Object { "-object=$($_.FullName)" }
               
               # 3. Export to LCOV format
-              llvm-cov export $mainBin $extraBins `
+              & llvm-cov export $mainBin $extraBins `
                 -instr-profile="${{ github.workspace }}\Release-build\coverage.profdata" `
                 -format=lcov `
                 -sources="${{ github.workspace }}\svf" `
-                -sources="${{ github.workspace }}\svf-llvm" > "${{ github.workspace }}\Release-build\coverage-msvc.info"
+                -sources="${{ github.workspace }}\svf-llvm" | Set-Content -Path "${{ github.workspace }}\Release-build\coverage-msvc.info" -Encoding ascii
               
               # 4. Normalize paths in coverage-msvc.info to relative repository paths for Codecov
               $ws = $env:GITHUB_WORKSPACE
@@ -154,7 +156,7 @@ jobs:
                       $_ -replace ('SF:' + [regex]::Escape($ws + '\')), 'SF:' `
                          -replace ('SF:' + [regex]::Escape($wsForward + '/')), 'SF:' `
                          -replace ('SF:' + [regex]::Escape($ws + '/')), 'SF:'
-                  } | Set-Content "${{ github.workspace }}\Release-build\coverage-msvc.info"
+                  } | Set-Content -Path "${{ github.workspace }}\Release-build\coverage-msvc.info" -Encoding ascii
               }
           }
 
