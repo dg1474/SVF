@@ -1,0 +1,45 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFrameworks>net8.0;net9.0;netstandard2.0</TargetFrameworks>
+    <PackageId>SVF.NET</PackageId>
+    <Version>1.0.0</Version>
+    <Authors>SVF-tools, dg1474</Authors>
+    <Company>SVF-tools</Company>
+    <Description>.NET / C# bindings and native runtime wrapper for SVF (Static Value-Flow Analysis Framework for Source Code / LLVM Bitcode).</Description>
+    <PackageLicenseExpression>GPL-3.0-or-later</PackageLicenseExpression>
+    <PackageProjectUrl>https://github.com/SVF-tools/SVF</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/SVF-tools/SVF.git</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageTags>static-analysis;llvm;pointer-analysis;security;value-flow;csharp;dotnet</PackageTags>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <IncludeBuildOutput>true</IncludeBuildOutput>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="..\..\README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+  <!-- Include native binaries in NuGet package under runtimes/win-x64/native/ -->
+  <ItemGroup Condition="Exists('$(MSBuildThisFileDirectory)..\..\..\Release-build\bin\wpa.exe')">
+    <Content Include="$(MSBuildThisFileDirectory)..\..\..\Release-build\bin\wpa.exe">
+      <PackagePath>runtimes\win-x64\native\wpa.exe</PackagePath>
+      <Pack>true</Pack>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="$(MSBuildThisFileDirectory)..\..\..\Release-build\bin\saber.exe" Condition="Exists('$(MSBuildThisFileDirectory)..\..\..\Release-build\bin\saber.exe')">
+      <PackagePath>runtimes\win-x64\native\saber.exe</PackagePath>
+      <Pack>true</Pack>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="$(MSBuildThisFileDirectory)..\..\..\Release-build\lib\extapi.bc" Condition="Exists('$(MSBuildThisFileDirectory)..\..\..\Release-build\lib\extapi.bc')">
+      <PackagePath>runtimes\win-x64\native\extapi.bc</PackagePath>
+      <Pack>true</Pack>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
+</Project>

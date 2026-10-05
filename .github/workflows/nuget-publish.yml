@@ -1,0 +1,105 @@
+name: svf-nuget-publish
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build-and-pack:
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+
+      # 1. Setup Windows dependencies and build native MSVC binaries
+      - name: Setup Windows Dependencies
+        shell: powershell
+        run: |
+          choco install llvm ninja -y
+          curl.exe -L "https://github.com/c3lang/llvm-for-c3/releases/download/llvm_22.1.4/llvm-windows-amd64.tar.gz" -o llvm-sdk.tar.gz
+          New-Item -ItemType Directory -Force -Path C:\llvm-sdk | Out-Null
+          tar -xf llvm-sdk.tar.gz -C C:\llvm-sdk
+          
+          Copy-Item -Path "C:\Program Files\LLVM\bin\clang.exe" -Destination "C:\llvm-sdk\bin\" -Force
+          Copy-Item -Path "C:\Program Files\LLVM\bin\clang++.exe" -Destination "C:\llvm-sdk\bin\" -Force
+          Copy-Item -Path "C:\Program Files\LLVM\bin\clang-cl.exe" -Destination "C:\llvm-sdk\bin\" -Force
+          
+          $exportsFile = "C:\llvm-sdk\lib\cmake\llvm\LLVMExports.cmake"
+          if (Test-Path $exportsFile) {
+              $content = Get-Content $exportsFile -Raw
+              $newContent = $content -replace '[a-zA-Z]:/[^";]+?/DIA SDK/lib/amd64/diaguids\.lib;', ""
+              Set-Content $exportsFile $newContent -NoNewline
+          }
+          
+          curl.exe -L "https://github.com/Z3Prover/z3/releases/download/z3-4.15.4/z3-4.15.4-x64-win.zip" -o z3.zip
+          Expand-Archive -Path z3.zip -DestinationPath C:\z3-temp
+          $z3Folder = Get-ChildItem C:\z3-temp -Directory | Select-Object -First 1
+          Move-Item -Path $z3Folder.FullName -Destination C:\z3
+          
+          Add-Content -Path $env:GITHUB_PATH -Value "C:\llvm-sdk\bin" -Encoding UTF8
+          Add-Content -Path $env:GITHUB_PATH -Value "C:\z3\bin" -Encoding UTF8
+          Add-Content -Path $env:GITHUB_ENV -Value "LLVM_DIR=C:\llvm-sdk" -Encoding UTF8
+          Add-Content -Path $env:GITHUB_ENV -Value "Z3_DIR=C:\z3" -Encoding UTF8
+
+      - name: Add MSVC to PATH
+        uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Build Native SVF Tools (MSVC)
+        shell: powershell
+        run: |
+          cmake -B Release-build -S . `
+            -G Ninja `
+            -DCMAKE_BUILD_TYPE=Release `
+            -DLLVM_DIR="$env:LLVM_DIR" `
+            -DZ3_DIR="$env:Z3_DIR" `
+            -DSVF_Z3=ON `
+            -DBUILD_SHARED_LIBS=OFF `
+            -DSVF_WARN_AS_ERROR=OFF
+          cmake --build Release-build -j
+
+      # 2. Setup .NET SDK
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      # 3. Build & Pack NuGet Package
+      - name: Build and Pack SVF.NET
+        shell: powershell
+        run: |
+          dotnet build bindings/csharp/src/SVF.NET/SVF.NET.csproj -c Release
+          dotnet pack bindings/csharp/src/SVF.NET/SVF.NET.csproj -c Release -o ./nupkg
+
+      # 4. Upload nupkg artifact
+      - name: Upload NuGet Package Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: SVF.NET.nupkg
+          path: ./nupkg/*.nupkg
+
+      # 5. Publish to GitHub Packages
+      - name: Publish to GitHub Packages
+        if: github.repository == 'SVF-tools/SVF'
+        shell: powershell
+        run: |
+          dotnet nuget push ./nupkg/*.nupkg `
+            --api-key ${{ secrets.GITHUB_TOKEN }} `
+            --source "https://nuget.pkg.github.com/SVF-tools/index.json" `
+            --skip-duplicate
+
+      # 6. Publish to NuGet.org (if NUGET_API_KEY is configured)
+      - name: Publish to NuGet.org
+        if: github.repository == 'SVF-tools/SVF' && env.NUGET_API_KEY != ''
+        shell: powershell
+        env:
+          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+        run: |
+          dotnet nuget push ./nupkg/*.nupkg `
+            --api-key ${{ secrets.NUGET_API_KEY }} `
+            --source "https://api.nuget.org/v3/index.json" `
+            --skip-duplicate
