@@ -75,10 +75,13 @@ jobs:
       - name: Publish to GitHub Packages
         shell: powershell
         run: |
-          dotnet nuget push ./nupkg/*.nupkg `
-            --api-key ${{ secrets.GITHUB_TOKEN }} `
-            --source "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json" `
-            --skip-duplicate
+          Get-ChildItem -Path ./nupkg -Filter *.nupkg | ForEach-Object {
+            Write-Host "Pushing $($_.FullName) to GitHub Packages..."
+            dotnet nuget push $_.FullName `
+              --api-key ${{ secrets.GITHUB_TOKEN }} `
+              --source "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json" `
+              --skip-duplicate
+          }
 
       # Publish to NuGet.org (Trusted Publishing via OIDC or API Key)
       - name: Publish to NuGet.org
@@ -86,13 +89,16 @@ jobs:
         env:
           NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
         run: |
-          if ($env:NUGET_API_KEY) {
-            dotnet nuget push ./nupkg/*.nupkg `
-              --api-key $env:NUGET_API_KEY `
-              --source "https://api.nuget.org/v3/index.json" `
-              --skip-duplicate
-          } else {
-            dotnet nuget push ./nupkg/*.nupkg `
-              --source "https://api.nuget.org/v3/index.json" `
-              --skip-duplicate
+          Get-ChildItem -Path ./nupkg -Filter *.nupkg | ForEach-Object {
+            Write-Host "Pushing $($_.FullName) to NuGet.org..."
+            if ($env:NUGET_API_KEY) {
+              dotnet nuget push $_.FullName `
+                --api-key $env:NUGET_API_KEY `
+                --source "https://api.nuget.org/v3/index.json" `
+                --skip-duplicate
+            } else {
+              dotnet nuget push $_.FullName `
+                --source "https://api.nuget.org/v3/index.json" `
+                --skip-duplicate
+            }
           }
