@@ -14,32 +14,19 @@
     <PackageTags>static-analysis;llvm;pointer-analysis;security;value-flow;csharp;dotnet</PackageTags>
     <Nullable>enable</Nullable>
     <LangVersion>latest</LangVersion>
-    <GenerateDocumentationFile>true</GenerateDocumentationFile>
-    <IncludeBuildOutput>true</IncludeBuildOutput>
+    <IsPackable>true</IsPackable>
     <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
 
   <ItemGroup>
-    <None Include="..\..\README.md" Pack="true" PackagePath="\" />
+    <None Include="$(MSBuildThisFileDirectory)..\..\README.md" Pack="true" PackagePath="" />
   </ItemGroup>
 
-  <!-- Include native binaries in NuGet package under runtimes/win-x64/native/ -->
-  <ItemGroup Condition="Exists('$(MSBuildThisFileDirectory)..\..\..\Release-build\bin\wpa.exe')">
-    <Content Include="$(MSBuildThisFileDirectory)..\..\..\Release-build\bin\wpa.exe">
-      <PackagePath>runtimes\win-x64\native\wpa.exe</PackagePath>
-      <Pack>true</Pack>
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
-    <Content Include="$(MSBuildThisFileDirectory)..\..\..\Release-build\bin\saber.exe" Condition="Exists('$(MSBuildThisFileDirectory)..\..\..\Release-build\bin\saber.exe')">
-      <PackagePath>runtimes\win-x64\native\saber.exe</PackagePath>
-      <Pack>true</Pack>
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
-    <Content Include="$(MSBuildThisFileDirectory)..\..\..\Release-build\lib\extapi.bc" Condition="Exists('$(MSBuildThisFileDirectory)..\..\..\Release-build\lib\extapi.bc')">
-      <PackagePath>runtimes\win-x64\native\extapi.bc</PackagePath>
-      <Pack>true</Pack>
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
+  <!-- Include native Windows x64 binaries in NuGet package under runtimes/win-x64/native/ -->
+  <ItemGroup>
+    <None Include="$(MSBuildThisFileDirectory)..\..\..\..\Release-build\bin\wpa.exe" Condition="Exists('$(MSBuildThisFileDirectory)..\..\..\..\Release-build\bin\wpa.exe')" Pack="true" PackagePath="runtimes\win-x64\native\" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="$(MSBuildThisFileDirectory)..\..\..\..\Release-build\bin\saber.exe" Condition="Exists('$(MSBuildThisFileDirectory)..\..\..\..\Release-build\bin\saber.exe')" Pack="true" PackagePath="runtimes\win-x64\native\" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="$(MSBuildThisFileDirectory)..\..\..\..\Release-build\lib\extapi.bc" Condition="Exists('$(MSBuildThisFileDirectory)..\..\..\..\Release-build\lib\extapi.bc')" Pack="true" PackagePath="runtimes\win-x64\native\" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>
