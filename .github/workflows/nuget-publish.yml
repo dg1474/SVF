@@ -12,6 +12,7 @@ on:
 permissions:
   contents: read
   packages: write
+  id-token: write
 
 jobs:
   build-test-and-publish:
@@ -72,14 +73,19 @@ jobs:
             --source "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json" `
             --skip-duplicate
 
-      # Publish to NuGet.org (optional, if NUGET_API_KEY secret is configured)
+      # Publish to NuGet.org (Trusted Publishing via OIDC or API Key)
       - name: Publish to NuGet.org
-        if: env.NUGET_API_KEY != ''
         shell: powershell
         env:
           NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
         run: |
-          dotnet nuget push ./nupkg/*.nupkg `
-            --api-key ${{ secrets.NUGET_API_KEY }} `
-            --source "https://api.nuget.org/v3/index.json" `
-            --skip-duplicate
+          if ($env:NUGET_API_KEY) {
+            dotnet nuget push ./nupkg/*.nupkg `
+              --api-key $env:NUGET_API_KEY `
+              --source "https://api.nuget.org/v3/index.json" `
+              --skip-duplicate
+          } else {
+            dotnet nuget push ./nupkg/*.nupkg `
+              --source "https://api.nuget.org/v3/index.json" `
+              --skip-duplicate
+          }
