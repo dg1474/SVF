@@ -83,11 +83,18 @@ jobs:
               --skip-duplicate
           }
 
+      # Login to NuGet.org via OIDC (Trusted Publishing)
+      - name: NuGet login
+        id: login
+        uses: NuGet/login@v1
+        with:
+          user: Giorgio
+
       # Publish to NuGet.org (Trusted Publishing via OIDC or API Key)
       - name: Publish to NuGet.org
         shell: powershell
         env:
-          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+          NUGET_API_KEY: ${{ steps.login.outputs.NUGET_API_KEY || secrets.NUGET_API_KEY }}
         run: |
           Get-ChildItem -Path ./nupkg -Filter *.nupkg | ForEach-Object {
             Write-Host "Pushing $($_.FullName) to NuGet.org..."
@@ -97,8 +104,7 @@ jobs:
                 --source "https://api.nuget.org/v3/index.json" `
                 --skip-duplicate
             } else {
-              dotnet nuget push $_.FullName `
-                --source "https://api.nuget.org/v3/index.json" `
-                --skip-duplicate
+              Write-Error "No NuGet API key or OIDC token available."
+              exit 1
             }
           }
