@@ -15,7 +15,11 @@ namespace SVF.NET.Tests
             string currentDir = Directory.GetCurrentDirectory();
             string wpaPath = Path.Combine(currentDir, "Release-build", "bin", "wpa.exe");
             string extapiPath = Path.Combine(currentDir, "Release-build", "lib", "extapi.bc");
-            string bitcodePath = Path.Combine(currentDir, "test_fp.bc");
+            string bitcodePath = args.Length > 0 && File.Exists(args[0])
+                ? args[0]
+                : (File.Exists(Path.Combine(currentDir, "Test-Suite", "test_cases_bc", "basic_c_tests", "struct-nested-array3.c.bc"))
+                    ? Path.Combine(currentDir, "Test-Suite", "test_cases_bc", "basic_c_tests", "struct-nested-array3.c.bc")
+                    : Path.Combine(currentDir, "test_fp.bc"));
 
             Console.WriteLine($"[1] WPA Executable: {wpaPath} (Exists: {File.Exists(wpaPath)})");
             Console.WriteLine($"[2] ExtAPI Module:  {extapiPath} (Exists: {File.Exists(extapiPath)})");
