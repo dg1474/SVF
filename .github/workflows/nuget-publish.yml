@@ -55,7 +55,13 @@ jobs:
       - name: Pack SVF.NET NuGet Package
         shell: powershell
         run: |
+          New-Item -ItemType Directory -Force -Path ./nupkg | Out-Null
           dotnet pack bindings/csharp/src/SVF.NET/SVF.NET.csproj -c Release -o ./nupkg
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error "dotnet pack failed with exit code $LASTEXITCODE"
+            exit $LASTEXITCODE
+          }
+          Get-ChildItem ./nupkg
 
       # Upload NuGet Package Artifact
       - name: Upload NuGet Package Artifact

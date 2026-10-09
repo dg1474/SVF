@@ -63,7 +63,7 @@ namespace SVF.NET
             }
             if (!string.IsNullOrWhiteSpace(extraArguments))
             {
-                args.Add(extraArguments);
+                args.Add(extraArguments!);
             }
             args.Add($"\"{bitcodePath}\"");
 
