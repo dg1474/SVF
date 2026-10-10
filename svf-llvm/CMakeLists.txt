@@ -86,19 +86,17 @@ if(MINGW)
   # Exclude import libraries (.dll.a) to avoid dynamic linking
   list(FILTER LLVM_STATIC_LIBS EXCLUDE REGEX "\\.dll\\.a$")
   # Also append static system libraries required by LLVM support and XML/compression features
-  list(APPEND LLVM_STATIC_LIBS
-    "${LLVM_LIBRARY_DIRS}/libzstd.a"
-    "${LLVM_LIBRARY_DIRS}/libxml2.a"
-    "${LLVM_LIBRARY_DIRS}/libz.a"
-    "${LLVM_LIBRARY_DIRS}/libffi.a"
-    bcrypt
-    ntdll
-  )
+  foreach(_lib libzstd.a libxml2.a libz.a libffi.a)
+    if(EXISTS "${LLVM_LIBRARY_DIRS}/${_lib}")
+      list(APPEND LLVM_STATIC_LIBS "${LLVM_LIBRARY_DIRS}/${_lib}")
+    endif()
+  endforeach()
+  list(APPEND LLVM_STATIC_LIBS bcrypt ntdll)
   set(LLVM_LIBRARIES ${LLVM_STATIC_LIBS})
 endif()
 
-# Search in the executables dir for this LLVM's clang instance
-find_program(LLVM_CLANG clang ${LLVM_BINARY_DIR} ${LLVM_TOOLS_BINARY_DIR})
+# Search in the executables dir or system PATH for this LLVM's clang instance
+find_program(LLVM_CLANG NAMES clang clang.exe clang-21 PATHS ${LLVM_BINARY_DIR} ${LLVM_TOOLS_BINARY_DIR})
 if(NOT LLVM_CLANG)
   message(FATAL_ERROR "Failed to find 'clang' in LLVM package!")
 endif()
