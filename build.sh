@@ -325,21 +325,26 @@ ensure_llvm() {
         return
     fi
 
-    # In MinGW / MSYS2, check if system LLVM is installed
+    # In MinGW / MSYS2, check if system LLVM is installed and matches the required major version
     if [[ "$PLATFORM" == "windows-mingw" ]]; then
         if command -v llvm-config >/dev/null 2>&1; then
-            LLVM_DIR="$(llvm-config --prefix)"
-            export LLVM_DIR
-            echo "Using MinGW system LLVM_DIR=$LLVM_DIR"
-            return
+            local sys_llvm_ver
+            sys_llvm_ver="$(llvm-config --version 2>/dev/null || echo "")"
+            if [[ "$sys_llvm_ver" == "${MajorLLVMVer}".* ]]; then
+                LLVM_DIR="$(llvm-config --prefix)"
+                export LLVM_DIR
+                echo "Using matching MinGW system LLVM_DIR=$LLVM_DIR (version $sys_llvm_ver)"
+                return
+            else
+                echo "Notice: System LLVM version ($sys_llvm_ver) does not match required MajorLLVMVer=${MajorLLVMVer}. Using pinned LLVM."
+            fi
         elif [[ -d "/clang64/include/llvm" ]]; then
-            export LLVM_DIR="/clang64"
-            echo "Using MinGW system LLVM_DIR=$LLVM_DIR"
-            return
-        elif [[ -d "/mingw64/include/llvm" ]]; then
-            export LLVM_DIR="/mingw64"
-            echo "Using MinGW system LLVM_DIR=$LLVM_DIR"
-            return
+            # Verify if clang64 include is version 21
+            if grep -q "LLVM_VERSION_MAJOR ${MajorLLVMVer}" /clang64/include/llvm/Config/llvm-config.h 2>/dev/null; then
+                export LLVM_DIR="/clang64"
+                echo "Using MinGW system LLVM_DIR=$LLVM_DIR"
+                return
+            fi
         fi
     fi
 
@@ -493,8 +498,8 @@ build_svf() {
     elif [[ "$PLATFORM" == "windows-mingw" ]]; then
         cmake_generator_args=(
             -G "Ninja"
-            -DCMAKE_C_COMPILER=clang
-            -DCMAKE_CXX_COMPILER=clang++
+            -DCMAKE_C_COMPILER="${CC:-clang}"
+            -DCMAKE_CXX_COMPILER="${CXX:-clang++}"
             -DSVF_WARN_AS_ERROR=OFF
             -DSVF_EXPORT_DYNAMIC=OFF
             -DSVF_Z3=ON
