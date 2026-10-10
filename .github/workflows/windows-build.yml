@@ -23,9 +23,9 @@ jobs:
           msystem: CLANG64
           update: true
           install: >-
-            mingw-w64-clang-x86_64-clang
-            mingw-w64-clang-x86_64-llvm
-            mingw-w64-clang-x86_64-lld
+            mingw-w64-clang-x86_64-clang-21
+            mingw-w64-clang-x86_64-llvm-21
+            mingw-w64-clang-x86_64-lld-21
             mingw-w64-clang-x86_64-cmake
             mingw-w64-clang-x86_64-ninja
             mingw-w64-clang-x86_64-z3
@@ -71,7 +71,7 @@ jobs:
         shell: msys2 {0}
         working-directory: ${{ github.workspace }}/Release-build
         run: |
-          export PATH="${{ github.workspace }}/Release-build/bin:${{ github.workspace }}/Release-build/lib:$PATH"
+          export PATH="/clang64/opt/llvm-21/bin:${{ github.workspace }}/Release-build/bin:${{ github.workspace }}/Release-build/lib:$PATH"
           ctest --output-on-failure -E symabs
 
       - name: Create Coverage Report (MinGW)
