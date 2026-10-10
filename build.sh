@@ -336,26 +336,21 @@ ensure_llvm() {
         return
     fi
 
-    # In MinGW / MSYS2, check if system LLVM is installed and matches the required major version
+    # In MinGW / MSYS2, use native MinGW LLVM installation
     if [[ "$PLATFORM" == "windows-mingw" ]]; then
         if command -v llvm-config >/dev/null 2>&1; then
-            local sys_llvm_ver
-            sys_llvm_ver="$(llvm-config --version 2>/dev/null || echo "")"
-            if [[ "$sys_llvm_ver" == "${MajorLLVMVer}".* ]]; then
-                LLVM_DIR="$(llvm-config --prefix)"
-                export LLVM_DIR
-                echo "Using matching MinGW system LLVM_DIR=$LLVM_DIR (version $sys_llvm_ver)"
-                return
-            else
-                echo "Notice: System LLVM version ($sys_llvm_ver) does not match required MajorLLVMVer=${MajorLLVMVer}. Using pinned LLVM."
-            fi
+            LLVM_DIR="$(llvm-config --prefix)"
+            export LLVM_DIR
+            echo "Using MinGW system LLVM_DIR=$LLVM_DIR"
+            return
         elif [[ -d "/clang64/include/llvm" ]]; then
-            # Verify if clang64 include is version 21
-            if grep -q "LLVM_VERSION_MAJOR ${MajorLLVMVer}" /clang64/include/llvm/Config/llvm-config.h 2>/dev/null; then
-                export LLVM_DIR="/clang64"
-                echo "Using MinGW system LLVM_DIR=$LLVM_DIR"
-                return
-            fi
+            export LLVM_DIR="/clang64"
+            echo "Using MinGW system LLVM_DIR=$LLVM_DIR"
+            return
+        elif [[ -d "/mingw64/include/llvm" ]]; then
+            export LLVM_DIR="/mingw64"
+            echo "Using MinGW system LLVM_DIR=$LLVM_DIR"
+            return
         fi
     fi
 
