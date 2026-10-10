@@ -81,18 +81,14 @@ else()
 endif()
 
 if(MINGW)
-  # Glob all static library files matching libLLVM*.a from the LLVM library directory
-  file(GLOB LLVM_STATIC_LIBS "${LLVM_LIBRARY_DIRS}/libLLVM*.a")
-  # Exclude import libraries (.dll.a) to avoid dynamic linking
-  list(FILTER LLVM_STATIC_LIBS EXCLUDE REGEX "\\.dll\\.a$")
-  # Also append static system libraries required by LLVM support and XML/compression features
+  # Append optional static support libraries if present in LLVM_LIBRARY_DIRS
   foreach(_lib libzstd.a libxml2.a libz.a libffi.a)
     if(EXISTS "${LLVM_LIBRARY_DIRS}/${_lib}")
-      list(APPEND LLVM_STATIC_LIBS "${LLVM_LIBRARY_DIRS}/${_lib}")
+      list(APPEND LLVM_LIBRARIES "${LLVM_LIBRARY_DIRS}/${_lib}")
     endif()
   endforeach()
-  list(APPEND LLVM_STATIC_LIBS bcrypt ntdll)
-  set(LLVM_LIBRARIES ${LLVM_STATIC_LIBS})
+  # Add required Windows system libraries for MinGW
+  list(APPEND LLVM_LIBRARIES bcrypt ntdll)
 endif()
 
 # Search in the executables dir or system PATH for this LLVM's clang instance
