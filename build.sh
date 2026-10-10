@@ -361,9 +361,13 @@ ensure_llvm() {
             local msys_mirror="https://mirror.msys2.org/mingw/clang64"
             local pkg_suffix="${MajorLLVMVer}.1.8-4-any"
             pacman -U --noconfirm --needed \
+                "${msys_mirror}/mingw-w64-clang-x86_64-llvm-libs-${pkg_suffix}.pkg.tar.zst" \
+                "${msys_mirror}/mingw-w64-clang-x86_64-llvm-tools-${pkg_suffix}.pkg.tar.zst" \
                 "${msys_mirror}/mingw-w64-clang-x86_64-llvm-${pkg_suffix}.pkg.tar.zst" \
+                "${msys_mirror}/mingw-w64-clang-x86_64-clang-libs-${pkg_suffix}.pkg.tar.zst" \
+                "${msys_mirror}/mingw-w64-clang-x86_64-compiler-rt-${pkg_suffix}.pkg.tar.zst" \
                 "${msys_mirror}/mingw-w64-clang-x86_64-clang-${pkg_suffix}.pkg.tar.zst" \
-                "${msys_mirror}/mingw-w64-clang-x86_64-lld-${pkg_suffix}.pkg.tar.zst" || true
+                "${msys_mirror}/mingw-w64-clang-x86_64-lld-${pkg_suffix}.pkg.tar.zst"
 
             if command -v llvm-config >/dev/null 2>&1; then
                 LLVM_DIR="$(llvm-config --prefix)"
