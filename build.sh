@@ -336,7 +336,7 @@ ensure_llvm() {
         return
     fi
 
-    # In MinGW / MSYS2, use native MinGW LLVM installation
+    # In MinGW / MSYS2, use native MinGW LLVM installation matching MajorLLVMVer
     if [[ "$PLATFORM" == "windows-mingw" ]]; then
         if [[ -d "/clang64/opt/llvm-${MajorLLVMVer}" ]]; then
             export LLVM_DIR="/clang64/opt/llvm-${MajorLLVMVer}"
@@ -353,19 +353,32 @@ ensure_llvm() {
             export LLVM_DIR
             echo "Using MinGW system LLVM_DIR=$LLVM_DIR"
             return
-        elif command -v llvm-config >/dev/null 2>&1; then
-            LLVM_DIR="$(llvm-config --prefix)"
-            export LLVM_DIR
-            echo "Using MinGW system LLVM_DIR=$LLVM_DIR"
-            return
-        elif [[ -d "/clang64/include/llvm" ]]; then
-            export LLVM_DIR="/clang64"
-            echo "Using MinGW system LLVM_DIR=$LLVM_DIR"
-            return
-        elif [[ -d "/mingw64/include/llvm" ]]; then
-            export LLVM_DIR="/mingw64"
-            echo "Using MinGW system LLVM_DIR=$LLVM_DIR"
-            return
+        fi
+
+        # If LLVM is not yet installed in MSYS2, install pinned packages for MajorLLVMVer
+        if command -v pacman >/dev/null 2>&1; then
+            echo "Installing LLVM ${MajorLLVMVer} packages for MinGW in MSYS2..."
+            local msys_mirror="https://mirror.msys2.org/mingw/clang64"
+            local pkg_suffix="${MajorLLVMVer}.1.8-4-any"
+            pacman -U --noconfirm --needed \
+                "${msys_mirror}/mingw-w64-clang-x86_64-llvm-${pkg_suffix}.pkg.tar.zst" \
+                "${msys_mirror}/mingw-w64-clang-x86_64-clang-${pkg_suffix}.pkg.tar.zst" \
+                "${msys_mirror}/mingw-w64-clang-x86_64-lld-${pkg_suffix}.pkg.tar.zst" || true
+
+            if command -v llvm-config >/dev/null 2>&1; then
+                LLVM_DIR="$(llvm-config --prefix)"
+                export LLVM_DIR
+                echo "Using MinGW system LLVM_DIR=$LLVM_DIR"
+                return
+            elif [[ -d "/clang64/include/llvm" ]]; then
+                export LLVM_DIR="/clang64"
+                echo "Using MinGW system LLVM_DIR=$LLVM_DIR"
+                return
+            elif [[ -d "/mingw64/include/llvm" ]]; then
+                export LLVM_DIR="/mingw64"
+                echo "Using MinGW system LLVM_DIR=$LLVM_DIR"
+                return
+            fi
         fi
     fi
 

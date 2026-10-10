@@ -23,9 +23,6 @@ jobs:
           msystem: CLANG64
           update: true
           install: >-
-            mingw-w64-clang-x86_64-clang-21
-            mingw-w64-clang-x86_64-llvm-21
-            mingw-w64-clang-x86_64-lld-21
             mingw-w64-clang-x86_64-cmake
             mingw-w64-clang-x86_64-ninja
             mingw-w64-clang-x86_64-z3
@@ -63,7 +60,8 @@ jobs:
         shell: powershell
         working-directory: ${{ github.workspace }}/Release-build
         run: |
-          $env:PATH = "${{ github.workspace }}\Release-build\bin;${{ github.workspace }}\Release-build\lib;${{ github.workspace }}\z3.obj\bin;${{ github.workspace }}\llvm-21.1.0.obj\bin;$env:PATH"
+          $llvm_bin = (Get-Item "${{ github.workspace }}\llvm-*.obj\bin").FullName
+          $env:PATH = "${{ github.workspace }}\Release-build\bin;${{ github.workspace }}\Release-build\lib;${{ github.workspace }}\z3.obj\bin;$llvm_bin;$env:PATH"
           ctest --output-on-failure -E symabs
 
       - name: Run CTests (MinGW)
@@ -71,7 +69,8 @@ jobs:
         shell: msys2 {0}
         working-directory: ${{ github.workspace }}/Release-build
         run: |
-          export PATH="/clang64/opt/llvm-21/bin:${{ github.workspace }}/Release-build/bin:${{ github.workspace }}/Release-build/lib:$PATH"
+          source ${{ github.workspace }}/setup.sh
+          export PATH="${{ github.workspace }}/Release-build/bin:${{ github.workspace }}/Release-build/lib:$PATH"
           ctest --output-on-failure -E symabs
 
       - name: Create Coverage Report (MinGW)
