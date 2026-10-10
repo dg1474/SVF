@@ -317,6 +317,17 @@ download_llvm_prebuilt() {
             sed -i 's|[a-zA-Z]:/[^";]*DIA SDK/lib/amd64/diaguids\.lib;||g' "$exports_file" || true
         fi
     fi
+
+    # For Windows MinGW LLVM SDK, ensure libzstd.a is available for Ninja/CMake targets
+    if [[ "$PLATFORM" == "windows-mingw" ]]; then
+        if [[ -f "/clang64/lib/libzstd.a" ]]; then
+            cp "/clang64/lib/libzstd.a" "./$LLVMHome/lib/" || true
+        elif [[ -f "/mingw64/lib/libzstd.a" ]]; then
+            cp "/mingw64/lib/libzstd.a" "./$LLVMHome/lib/" || true
+        else
+            touch "./$LLVMHome/lib/libzstd.a" 2>/dev/null || true
+        fi
+    fi
 }
 
 ensure_llvm() {
