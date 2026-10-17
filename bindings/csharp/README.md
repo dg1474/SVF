@@ -49,3 +49,7 @@ class Program
 - **Cross-Platform .NET Support:** Targets `net8.0`, `net9.0`, and `netstandard2.0`.
 - **Self-Contained Native Binaries:** Pre-bundled with high-performance, statically linked (`/MT`) Windows MSVC binaries (`wpa.exe`, `extapi.bc`).
 - **Indirect Call Resolution:** Easily extract and analyze function pointer targets.
+
+## License
+
+`SVF.NET` is licensed under the [GNU Affero General Public License v3 or later (AGPL-3.0-or-later)](https://licenses.nuget.org/AGPL-3.0-or-later), matching upstream SVF.

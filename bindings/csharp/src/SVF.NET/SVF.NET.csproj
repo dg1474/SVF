@@ -3,11 +3,11 @@
   <PropertyGroup>
     <TargetFrameworks>net8.0;netstandard2.0</TargetFrameworks>
     <PackageId>SVF.NET</PackageId>
-    <Version>1.0.0</Version>
+    <Version>1.0.1</Version>
     <Authors>SVF-tools, dg1474</Authors>
     <Company>SVF-tools</Company>
     <Description>.NET / C# bindings and native runtime wrapper for SVF (Static Value-Flow Analysis Framework for Source Code / LLVM Bitcode).</Description>
-    <PackageLicenseExpression>GPL-3.0-or-later</PackageLicenseExpression>
+    <PackageLicenseExpression>AGPL-3.0-or-later</PackageLicenseExpression>
     <PackageProjectUrl>https://github.com/SVF-tools/SVF</PackageProjectUrl>
     <RepositoryUrl>https://github.com/SVF-tools/SVF.git</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
