@@ -5,6 +5,9 @@ on:
     branches:
       - windows-port-csharp-nuget
       - master
+    paths:
+      - 'bindings/csharp/**'
+      - '.github/workflows/nuget-publish.yml'
     tags:
       - 'v*'
   workflow_dispatch:
@@ -20,6 +23,37 @@ jobs:
     runs-on: windows-2022
     steps:
       - uses: actions/checkout@v4
+
+      # Setup .NET SDK early for version checks and tests
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      # Pre-check if Version is Already Published on NuGet.org
+      - name: Check if Version Already Published
+        id: check_version
+        shell: powershell
+        run: |
+          [xml]$csproj = Get-Content bindings/csharp/src/SVF.NET/SVF.NET.csproj
+          $ver = $csproj.Project.PropertyGroup.Version
+          Write-Host "Target package version: $ver"
+          $published = $false
+          try {
+            $resp = Invoke-RestMethod -Uri "https://api.nuget.org/v3-flatcontainer/svf.net/index.json" -ErrorAction Stop
+            if ($resp.versions -contains $ver) {
+              $published = $true
+            }
+          } catch {
+            Write-Warning "Could not fetch existing versions from NuGet.org: $_"
+          }
+          if ($published) {
+            Write-Host "::warning::Version $ver is ALREADY published on NuGet.org."
+            echo "already_published=true" >> $env:GITHUB_OUTPUT
+          } else {
+            Write-Host "Version $ver is not yet published on NuGet.org. Will proceed with packaging and publish."
+            echo "already_published=false" >> $env:GITHUB_OUTPUT
+          }
 
       - name: Install dependencies (Ninja)
         run: |
@@ -38,18 +72,34 @@ jobs:
         run: |
           source ./build.sh
 
-      # Setup .NET SDK
-      - name: Setup .NET SDK
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: '8.0.x'
-
       # Build & Run C# Integration Tests
       - name: Run SVF.NET C# Integration Tests
         shell: powershell
         run: |
           dotnet build bindings/csharp/src/SVF.NET/SVF.NET.csproj -c Release
           dotnet run --project bindings/csharp/tests/SVF.NET.Tests.csproj -c Release -- "${{ github.workspace }}/Test-Suite/test_cases_bc/basic_c_tests/struct-nested-array3.c.bc"
+
+      # Validate Native Binaries Exist Before Packing (Fail-Fast)
+      - name: Validate Native Binaries Exist
+        shell: powershell
+        run: |
+          $required = @(
+            "Release-build/bin/wpa.exe",
+            "Release-build/bin/saber.exe",
+            "Release-build/lib/extapi.bc"
+          )
+          $missing = @()
+          foreach ($file in $required) {
+            if (-not (Test-Path $file)) {
+              $missing += $file
+            }
+          }
+          if ($missing.Count -gt 0) {
+            Write-Error "CRITICAL: The following required native binaries are missing from Release-build:`n$($missing -join "`n")"
+            Write-Error "Aborting pack to prevent publishing an incomplete NuGet package!"
+            exit 1
+          }
+          Write-Host "Validation PASSED: All required native binaries verified."
 
       # Build & Pack NuGet Package
       - name: Pack SVF.NET NuGet Package
@@ -64,6 +114,33 @@ jobs:
           Write-Host "Listing contents of ./nupkg:"
           Get-ChildItem -Path ./nupkg -Recurse
 
+      # Verify Package Archive Integrity (Inspect ZIP entries)
+      - name: Verify Package Contents
+        shell: powershell
+        run: |
+          $nupkg = Get-ChildItem -Path ./nupkg -Filter *.nupkg | Select-Object -First 1
+          if (-not $nupkg) {
+            Write-Error "CRITICAL: No .nupkg file generated in ./nupkg"
+            exit 1
+          }
+          Write-Host "Inspecting package archive: $($nupkg.Name) ($([math]::Round($nupkg.Length / 1MB, 2)) MB)"
+          Add-Type -AssemblyName System.IO.Compression.FileSystem
+          $zip = [System.IO.Compression.ZipFile]::OpenRead($nupkg.FullName)
+          $entries = $zip.Entries | Select-Object -ExpandProperty FullName
+          Write-Host "Package contains $($entries.Count) items:"
+          $entries | ForEach-Object { Write-Host "  - $_" }
+          $zip.Dispose()
+
+          # Verify native binaries are inside the package
+          $wpaFound = $entries | Where-Object { $_ -match "runtimes/win-x64/native/wpa\.exe" }
+          $saberFound = $entries | Where-Object { $_ -match "runtimes/win-x64/native/saber\.exe" }
+          $extapiFound = $entries | Where-Object { $_ -match "runtimes/win-x64/native/extapi\.bc" }
+          if (-not $wpaFound -or -not $saberFound -or -not $extapiFound) {
+            Write-Error "CRITICAL: Native binaries were NOT bundled inside the .nupkg package!"
+            exit 1
+          }
+          Write-Host "Integrity verification PASSED: Native binaries verified in runtimes/win-x64/native/."
+
       # Upload NuGet Package Artifact
       - name: Upload NuGet Package Artifact
         uses: actions/upload-artifact@v4
@@ -71,8 +148,17 @@ jobs:
           name: SVF.NET.nupkg
           path: ./nupkg/*.nupkg
 
-      # Publish to GitHub Packages (dg1474 / SVF-tools)
+      # Dry-Run Notice
+      - name: Dry-Run Notice (Testing Mode)
+        shell: powershell
+        run: |
+          Write-Host "DRY-RUN MODE ACTIVE: Package built and verified successfully."
+          Write-Host "Skipping live publish steps to NuGet.org and GitHub Packages."
+          Write-Host "The generated .nupkg package is available in the workflow Artifacts."
+
+      # Publish to GitHub Packages (dg1474 / SVF-tools) - DISABLED FOR DRY RUN
       - name: Publish to GitHub Packages
+        if: false
         shell: powershell
         run: |
           Get-ChildItem -Path ./nupkg -Filter *.nupkg | ForEach-Object {
@@ -83,19 +169,26 @@ jobs:
               --skip-duplicate
           }
 
-      # Login to NuGet.org via OIDC (Trusted Publishing)
+      # Login to NuGet.org via OIDC (Trusted Publishing) - DISABLED FOR DRY RUN
       - name: NuGet login
+        if: false
         id: login
         uses: NuGet/login@v1
         with:
           user: Giorgio
 
-      # Publish to NuGet.org (Trusted Publishing via OIDC or API Key)
+      # Publish to NuGet.org (Trusted Publishing via OIDC or API Key) - DISABLED FOR DRY RUN
       - name: Publish to NuGet.org
+        if: false
         shell: powershell
         env:
           NUGET_API_KEY: ${{ steps.login.outputs.NUGET_API_KEY || secrets.NUGET_API_KEY }}
+          ALREADY_PUBLISHED: ${{ steps.check_version.outputs.already_published }}
         run: |
+          if ($env:ALREADY_PUBLISHED -eq 'true' -and '${{ github.event_name }}' -ne 'workflow_dispatch') {
+            Write-Host "Version is already published on NuGet.org. Skipping push."
+            exit 0
+          }
           Get-ChildItem -Path ./nupkg -Filter *.nupkg | ForEach-Object {
             Write-Host "Pushing $($_.FullName) to NuGet.org..."
             if ($env:NUGET_API_KEY) {

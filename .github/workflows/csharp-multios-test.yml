@@ -1,0 +1,74 @@
+name: csharp-multios-test
+
+on:
+  push:
+    branches:
+      - windows-port-csharp-nuget
+      - master
+    paths:
+      - 'bindings/csharp/**'
+      - '.github/workflows/csharp-multios-test.yml'
+  pull_request:
+    paths:
+      - 'bindings/csharp/**'
+      - '.github/workflows/csharp-multios-test.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test-matrix:
+    name: Test on ${{ matrix.os }} (.NET ${{ matrix.dotnet }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest, macos-latest, macos-13]
+        dotnet: ['8.0.x', '9.0.x']
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup .NET SDK (${{ matrix.dotnet }})
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ matrix.dotnet }}
+
+      - name: Display .NET environment info
+        run: dotnet --info
+
+      - name: Build SVF.NET Core Library (net8.0 and netstandard2.0)
+        run: dotnet build bindings/csharp/src/SVF.NET/SVF.NET.csproj -c Release
+
+      - name: Setup Mock Native Binary on Unix (Linux / macOS)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          mkdir -p /tmp/ci_mock_svf/bin
+          cat << 'EOF' > /tmp/ci_mock_svf/bin/wpa
+          #!/bin/sh
+          echo "*********General Stats***************"
+          echo "AddrsNum 42"
+          echo "CallsNum 2"
+          echo "IndCallSites 1"
+          echo "CallSite: call void fp() -> { target_handler_a, target_handler_b }"
+          exit 0
+          EOF
+          chmod +x /tmp/ci_mock_svf/bin/wpa
+          touch /tmp/mock_ci_test.bc
+          echo "SVF_DIR=/tmp/ci_mock_svf" >> $GITHUB_ENV
+          echo "CI_TEST_BC=/tmp/mock_ci_test.bc" >> $GITHUB_ENV
+
+      - name: Run SVF.NET Test Suite (Unix)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          dotnet run --project bindings/csharp/tests/SVF.NET.Tests.csproj -c Release -- "${CI_TEST_BC}"
+
+      - name: Run SVF.NET Test Suite (Windows)
+        if: runner.os == 'Windows'
+        shell: powershell
+        run: |
+          dotnet run --project bindings/csharp/tests/SVF.NET.Tests.csproj -c Release
